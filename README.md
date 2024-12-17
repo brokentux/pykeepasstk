@@ -1,7 +1,9 @@
 # pykeepasstk
 Simple TK GUI for pykeepass
 
-![alt text](https://i.imghippo.com/files/JFI3071QrU.jpg)
+![alt text](https://raw.githubusercontent.com/brokentux/pykeepasstk/refs/heads/main/preview.png)
+
+![alt text](https://raw.githubusercontent.com/brokentux/pykeepasstk/refs/heads/main/preview2.png)
 
 ## What does work
 Available function for the moment are fairly limited, though the following have been made :
@@ -21,6 +23,10 @@ A lot more can be done !
 - Custom icons for groups
 
 ...
+
+## Requirement
+
+pykeepass must be installed in your system, see https://github.com/libkeepass/pykeepass/tree/master for the list of requierement
 
 ## About
 This was made as a learning project, any improvement are welcome
