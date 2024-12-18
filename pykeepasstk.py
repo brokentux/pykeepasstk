@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.12
 import os
 from pykeepass import PyKeePass
 from tkinter import Tk, Canvas, Frame, Scrollbar, Grid, Pack, Label, Entry, Button, PhotoImage, Menu, StringVar, Text
@@ -14,13 +14,73 @@ root.geometry("300x300")
 root.eval('tk::PlaceWindow . center')
 root.title('PykeepassTK')
 
-# Open database (browse) and show associated widget
-def openDatabase():
+# Database class (open / set)
+class Database:
+
+    def open():
+        # Forget Group Canvas / Frame / Scrollbar (if a database was already opened)
+        dbFrame.pack_forget()
+        rootGroupsFrame.pack_forget()
+        rootEntriesFrame.pack_forget()
+        utilsFrame.pack_forget()
+        groupsCanvas.pack_forget()
+        groupsFrame.pack_forget()
+        groupsScrollbarY.pack_forget()
+        groupsScrollbarX.pack_forget()
+    
+        # Delete all widget inside the util frame
+        for child in utilsFrame.winfo_children():
+            child.destroy()
+            
+        # Delete all widget inside the group frame
+        for child in groupsFrame.winfo_children():
+            child.destroy()
+
+        # Forget the Canvas / Frame / Scrollbar entries (if a database was already opened)
+        entriesCanvas.pack_forget()
+        entriesFrame.pack_forget()
+        entriesScrollbarX.pack_forget()
+        entriesScrollbarY.pack_forget()
+    
+        # Delete all widget inside the entries frame
+        for child in entriesFrame.winfo_children():
+            child.destroy()
+          
+        filename = filedialog.askopenfilename(initialdir = os.getcwd(), title="Select a Database", filetypes = (("Keepassx DB", "*.kdbx*"),("all files","*.*")))
+
+        if filename:
+		
+            def selectKey(self):
+               keyPath = filedialog.askopenfilename(initialdir = os.getcwd(), title="Select a Key")
+               dbKeyString.set(keyPath)
+
+            dbFrame.pack(side='left', fill='both', expand=True)
+        
+            Label(dbFrame, text="Enter the credential for " + filename, pady=20).grid(row=0, column=1, sticky='ew')
+        
+            dbPasswordLabel = Label(dbFrame, text="Password", anchor='w')
+            dbPasswordLabel.grid(row=1, column=0, sticky='w')   
+            dbPasswordEntry = Entry(dbFrame, show="*", bd=1)
+            dbPasswordEntry.grid(row=1, column=1, sticky='ew')
+        
+            dbKeyLabel = Label(dbFrame, text="Key", anchor='w')
+            dbKeyLabel.grid(row=2, column=0, sticky='w')
+            dbKeyString = StringVar()
+            dbKeyEntry = Entry(dbFrame, textvariable=dbKeyString, bd=1)
+            dbKeyEntry.grid(row=2, column=1, sticky='ew')      
+            dbKeyEntry.bind("<1>", selectKey)
+        
+            dbPasswordButton = Button(dbFrame, text="Send", command=lambda:Database.set(filename, dbPasswordEntry, dbKeyEntry))
+            dbPasswordButton.grid(row=3, column=1, sticky='e')
+              
+            dbFrame.grid_columnconfigure(1, weight=1)
 	
     # Check credentials
-    def setDatabase(filename, dbPasswordEntry, dbKeyEntry):
-     		
-        # Check that the password field isn't empty
+    def set(filename, dbPasswordEntry, dbKeyEntry):
+     	
+        # Check password field isn't empty
+        dbPasswordError = Label(dbFrame, text="")
+        
         if not dbPasswordEntry.get():
             dbPasswordError.config(text="Password field cannot be empty")
             dbPasswordError.grid(row=4, column=1, sticky='ew')
@@ -45,122 +105,101 @@ def openDatabase():
                 utilsFrame.pack(fill='x')
                 
                 # Display groups list
-                getGroups()
+                Groups.display()
+                
                 # Display default entries list (root group)
                 gUuid = str(KP.root_group.uuid)
-                getEntries(gUuid)
+                Entries.display(gUuid)
                     
             except Exception as error:
                 dbPasswordError.config(text=error)
                 dbPasswordError.grid(row=4, column=1, sticky='ew')
+                
+# Groups class (listing, edit, add, delete)
+class Groups:
 
-    # Forget Group Canvas / Frame / Scrollbar (if a database was already opened)
-    dbFrame.pack_forget()
-    rootGroupsFrame.pack_forget()
-    rootEntriesFrame.pack_forget()
-    utilsFrame.pack_forget()
-    groupsCanvas.pack_forget()
-    groupsFrame.pack_forget()
-    groupsScrollbarY.pack_forget()
-    groupsScrollbarX.pack_forget()
-    
-    # Delete all widget inside the util frame
-    for child in utilsFrame.winfo_children():
-        child.destroy()
+    def addEntry(self):
+	
+        def save(titleString, usernameString, passwordString, urlString, noteEntryField, gUuid):
+
+            # Add entry to targeted group      
+            targetGroup = KP.find_groups(uuid=uuid.UUID(gUuid), first=True)
+        
+            # force_creation=True -> Otherwise won't allow 2 entry with same value
+            KP.add_entry(targetGroup, titleString.get(), usernameString.get(), passwordString.get(), urlString.get(), noteEntryField.get("1.0","end-1c"), force_creation=True)
+        
+            # Save database
+            KP.save()
+        
+            Entries.display(gUuid)
             
-    # Delete all widget inside the group frame
-    for child in groupsFrame.winfo_children():
-        child.destroy()
+            # Close window
+            entryWindow.destroy()
 
-    # Forget the Canvas / Frame / Scrollbar entries (if a database was already opened)
-    entriesCanvas.pack_forget()
-    entriesFrame.pack_forget()
-    entriesScrollbarX.pack_forget()
-    entriesScrollbarY.pack_forget()
+        entryWindow = Tk()
+        entryWindow.geometry("400x300")
+        entryWindow.eval('tk::PlaceWindow . center')
+
+        # Get Group uuid
+        gUuid = self.uuid
+
+        entryWindow.title(self.name)
+        entryWindow.config(background="white")
     
-    # Delete all widget inside the entries frame
-    for child in entriesFrame.winfo_children():
-        child.destroy()
-          
-    filename = filedialog.askopenfilename(initialdir = os.getcwd(), title="Select a Database", filetypes = (("Keepassx DB", "*.kdbx*"),("all files","*.*")))
+        # Entry title label + field
+        titleEntryLabel = Label(entryWindow, text="Title :", anchor='w', width=10, padx=3, background="white")
+        titleEntryLabel.grid(row=0, column=0, sticky='nw')
+        titleString = StringVar(entryWindow, "")
+        titleEntryField = Entry(entryWindow, textvariable=titleString)
+        titleEntryField.grid(row=0, column=1, sticky='ew')
 
-    if filename:
-		
-        def selectKey(self):
-           keyPath = filedialog.askopenfilename(initialdir = os.getcwd(), title="Select a Key")
-           dbKeyString.set(keyPath)
+        # Entry username label + field
+        usernameEntryLabel = Label(entryWindow, text="Username :", anchor='w', width=10, padx=3, background="white")
+        usernameEntryLabel.grid(row=1, column=0, sticky='nw')
+        usernameString = StringVar(entryWindow, "")
+        usernameEntryField = Entry(entryWindow, textvariable=usernameString, bd=1)
+        usernameEntryField.grid(row=1, column=1, sticky='ew')
 
-        dbFrame.pack(side='left', fill='both', expand=True)
-        
-        Label(dbFrame, text="Enter the credential for " + filename, pady=20).grid(row=0, column=1, sticky='ew')
-        
-        dbPasswordLabel = Label(dbFrame, text="Password", anchor='w')
-        dbPasswordLabel.grid(row=1, column=0, sticky='w')   
-        dbPasswordEntry = Entry(dbFrame, show="*", bd=1)
-        dbPasswordEntry.grid(row=1, column=1, sticky='ew')
-        
-        dbKeyLabel = Label(dbFrame, text="Key", anchor='w')
-        dbKeyLabel.grid(row=2, column=0, sticky='w')
-        dbKeyString = StringVar()
-        dbKeyEntry = Entry(dbFrame, textvariable=dbKeyString, bd=1)
-        dbKeyEntry.grid(row=2, column=1, sticky='ew')      
-        dbKeyEntry.bind("<1>", selectKey)
-        
-        dbPasswordButton = Button(dbFrame, text="Send", command=lambda:setDatabase(filename, dbPasswordEntry, dbKeyEntry))
-        dbPasswordButton.grid(row=3, column=1, sticky='e')
-        
-        dbPasswordError = Label(dbFrame, text="")
-        
-        dbFrame.grid_columnconfigure(1, weight=1)
+        # Entry password label + field
+        passwordEntryLabel = Label(entryWindow, text="Password :", anchor='w', width=10, padx=3, background="white")
+        passwordEntryLabel.grid(row=2, column=0, sticky='nw')
+        passwordString = StringVar(entryWindow, "")
+        passwordEntryField = Entry(entryWindow, textvariable=passwordString, bd=1)
+        passwordEntryField.grid(row=2, column=1, sticky='ew')
 
-# List groups
-def getGroups():
+        # Entry url label + field
+        urlEntryLabel = Label(entryWindow, text="Url :", anchor='w', width=10, padx=3, background="white")
+        urlEntryLabel.grid(row=3, column=0, sticky='nw')
+        urlString = StringVar(entryWindow, "")
+        urlEntryField = Entry(entryWindow, textvariable=urlString, bd=1)
+        urlEntryField.grid(row=3, column=1, sticky='ew')
     
-    # Reset Groups Frame
-    groupsFrame.pack_forget()
+        # Entry Note label + field
+        noteEntryLabel = Label(entryWindow, text="Note :", anchor='w', width=10, padx=3, background="white")
+        noteEntryLabel.grid(row=4, column=0, sticky='nw')
+        noteString = StringVar(entryWindow, "")
+        noteEntryField = Text(entryWindow, height=14, border=1)
+        noteEntryField.insert("1.0", noteString.get())
+        noteEntryField.grid(row=4, column=1, sticky='nsew')
 
-    # Delete all previous entries label
-    for child in groupsFrame.winfo_children():
-        child.destroy()
-        
-    rootGroupsFrame.pack(side="left", fill="y")
-    
-    # Display Group Frame/Canvas/Scrollbar
-    groupsCanvas.configure(yscrollcommand=groupsScrollbarY.set)
-    groupsCanvas.configure(xscrollcommand=groupsScrollbarX.set)
-    groupsScrollbarX.pack(side="bottom", fill="x")
-    groupsCanvas.pack(side="left", fill="both", expand=False)
-    groupsScrollbarY.pack(side="left", fill="y")
+        # Save button
+        buttonSaveEntry = Button(entryWindow, text="Save", command=lambda:save(titleString, usernameString, passwordString, urlString, noteEntryField, gUuid))
+        buttonSaveEntry.grid(row=5, column=1, sticky='ne')
 
-    # Create the canvas window
-    groupsCanvas.create_window((4,4), window=groupsFrame, anchor="nw")
-
-    # Bind the frame to the canvas
-    groupsFrame.bind("<Configure>", lambda event, canvas=entriesCanvas: onFrameConfigure(groupsCanvas))
+        # Fill field
+        entryWindow.grid_columnconfigure(1, weight=1)
+        entryWindow.grid_rowconfigure(4, weight=1)
     
     # Right click menu (add entry, edit group name)
-    def openMenuGroup(self):
+    def menu(self):
         menuGroup = Menu(root, tearoff=0)
-        menuGroup.add_command(label="Add entry", command=lambda:addEntry(self.widget))
-        menuGroup.add_command(label="Add group", command=lambda:addGroup(self.widget))
-        menuGroup.add_command(label="Edit group", command=lambda:editGroup(self.widget))
-        menuGroup.add_command(label="Delete group", command=lambda:delGroup(self.widget))
+        menuGroup.add_command(label="Add entry", command=lambda:Groups.addEntry(self.widget))
+        menuGroup.add_command(label="Add group", command=lambda:Groups.add(self.widget))
+        menuGroup.add_command(label="Edit group", command=lambda:Groups.edit(self.widget))
+        menuGroup.add_command(label="Delete group", command=lambda:Groups.delete(self.widget))
         menuGroup.add_command(label="Close")
         menuGroup.post(self.x_root, self.y_root)
-                                          
-    # Display root group first
-    kpGroup =  Label(groupsFrame, text=KP.root_group.name, anchor="w", pady=2, background="white", cursor="hand2")
-    kpGroup.uuid = str(KP.root_group.uuid)
-    kpGroup.name = KP.root_group.name
-    #
-    # Quick reminder why the group uuid is pass as an argument instead of the object widget itself :
-    # saveEntry() need the group uuid in order refresh the entries list (after modification), saveEntry is pass as an object
-    # with his own property uuid
-    #
-    kpGroup.bind("<Button-1>", lambda event, gUuid=kpGroup.uuid: getEntries(gUuid))
-    kpGroup.bind("<Button-3>", openMenuGroup)
-    kpGroup.pack(fill="x", expand=False, padx=5)
-             
+
     # Display the group/subgroups as Tree view style
     def tree(group, level=0):
         for g in group.subgroups:
@@ -179,228 +218,171 @@ def getGroups():
             kpGroup.uuid = str(g.uuid)
             kpGroup.name = g.name
             # See comment Quick reminder 
-            kpGroup.bind("<Button-1>", lambda event, gUuid=kpGroup.uuid: getEntries(gUuid))
-            kpGroup.bind("<Button-3>", openMenuGroup)
+            kpGroup.bind("<Button-1>", lambda event, gUuid=kpGroup.uuid: Entries.display(gUuid))
+            kpGroup.bind("<Button-3>", Groups.menu)
             kpGroup.pack(fill="x", expand=False, padx=5)
-            tree(g, level + 1)
-
-    tree(KP.root_group)
-
-def addEntry(self):
-	
-    def save(titleString, usernameString, passwordString, urlString, noteEntryField, gUuid):
-
-        # Add entry to targeted group      
-        targetGroup = KP.find_groups(uuid=uuid.UUID(gUuid), first=True)
-        
-        # force_creation=True -> Otherwise won't allow 2 entry with same value
-        KP.add_entry(targetGroup, titleString.get(), usernameString.get(), passwordString.get(), urlString.get(), noteEntryField.get("1.0","end-1c"), force_creation=True)
-        
-        # Save database
-        KP.save()
-        
-        getEntries(gUuid)
-            
-        # Close window
-        entryWindow.destroy()
-
-    entryWindow = Tk()
-    entryWindow.geometry("400x300")
-    entryWindow.eval('tk::PlaceWindow . center')
-
-    # Get Group uuid
-    gUuid = self.uuid
-
-    entryWindow.title(self.name)
-    entryWindow.config(background="white")
+            Groups.tree(g, level + 1)
+       
+    def display():
     
-    # Entry title label + field
-    titleEntryLabel = Label(entryWindow, text="Title :", anchor='w', width=10, padx=3, background="white")
-    titleEntryLabel.grid(row=0, column=0, sticky='nw')
-    titleString = StringVar(entryWindow, "")
-    titleEntryField = Entry(entryWindow, textvariable=titleString)
-    titleEntryField.grid(row=0, column=1, sticky='ew')
+        # Reset Groups Frame
+        groupsFrame.pack_forget()
 
-    # Entry username label + field
-    usernameEntryLabel = Label(entryWindow, text="Username :", anchor='w', width=10, padx=3, background="white")
-    usernameEntryLabel.grid(row=1, column=0, sticky='nw')
-    usernameString = StringVar(entryWindow, "")
-    usernameEntryField = Entry(entryWindow, textvariable=usernameString, bd=1)
-    usernameEntryField.grid(row=1, column=1, sticky='ew')
-
-    # Entry password label + field
-    passwordEntryLabel = Label(entryWindow, text="Password :", anchor='w', width=10, padx=3, background="white")
-    passwordEntryLabel.grid(row=2, column=0, sticky='nw')
-    passwordString = StringVar(entryWindow, "")
-    passwordEntryField = Entry(entryWindow, textvariable=passwordString, bd=1)
-    passwordEntryField.grid(row=2, column=1, sticky='ew')
-
-    # Entry url label + field
-    urlEntryLabel = Label(entryWindow, text="Url :", anchor='w', width=10, padx=3, background="white")
-    urlEntryLabel.grid(row=3, column=0, sticky='nw')
-    urlString = StringVar(entryWindow, "")
-    urlEntryField = Entry(entryWindow, textvariable=urlString, bd=1)
-    urlEntryField.grid(row=3, column=1, sticky='ew')
+        # Delete all previous entries label
+        for child in groupsFrame.winfo_children():
+            child.destroy()
+        
+        rootGroupsFrame.pack(side="left", fill="y")
     
-    # Entry Note label + field
-    noteEntryLabel = Label(entryWindow, text="Note :", anchor='w', width=10, padx=3, background="white")
-    noteEntryLabel.grid(row=4, column=0, sticky='nw')
-    noteString = StringVar(entryWindow, "")
-    noteEntryField = Text(entryWindow, height=14, border=1)
-    noteEntryField.insert("1.0", noteString.get())
-    noteEntryField.grid(row=4, column=1, sticky='nsew')
+        # Display Group Frame/Canvas/Scrollbar
+        groupsCanvas.configure(yscrollcommand=groupsScrollbarY.set)
+        groupsCanvas.configure(xscrollcommand=groupsScrollbarX.set)
+        groupsScrollbarX.pack(side="bottom", fill="x")
+        groupsCanvas.pack(side="left", fill="both", expand=False)
+        groupsScrollbarY.pack(side="left", fill="y")
 
-    # Save button
-    buttonSaveEntry = Button(entryWindow, text="Save", command=lambda:save(titleString, usernameString, passwordString, urlString, noteEntryField, gUuid))
-    buttonSaveEntry.grid(row=5, column=1, sticky='ne')
+        # Create the canvas window
+        groupsCanvas.create_window((4,4), window=groupsFrame, anchor="nw")
 
-    # Fill field
-    entryWindow.grid_columnconfigure(1, weight=1)
-    entryWindow.grid_rowconfigure(4, weight=1)
-
-def addGroup(self):
-
-    def save(self, addGroupNameString):
+        # Bind the frame to the canvas
+        groupsFrame.bind("<Configure>", lambda event, canvas=entriesCanvas: onFrameConfigure(groupsCanvas))
+                                              
+        # Display root group first
+        kpGroup =  Label(groupsFrame, text=KP.root_group.name, anchor="w", pady=2, background="white", cursor="hand2")
+        kpGroup.uuid = str(KP.root_group.uuid)
+        kpGroup.name = KP.root_group.name
         
-        # Need the fetch with find_groups where the new group will be inserted
-        gUuid = uuid.UUID(self.uuid)
-        getGroup = KP.find_groups(uuid=gUuid, first=True)
+        #
+        # Quick reminder why the group uuid is pass as an argument instead of the object widget itself :
+        # saveEntry() need the group uuid in order refresh the entries list (after modification), saveEntry is pass as an object
+        # with his own property uuid
+        #
         
-        # Add group, save database and refresh groups list
-        getGroup.touch(modify=True)
-        KP.add_group(getGroup, addGroupNameString.get())      
-        KP.save()
-        KP.reload()
-        getGroups()
+        kpGroup.bind("<Button-1>", lambda event, gUuid=kpGroup.uuid: Entries.display(gUuid))
+        kpGroup.bind("<Button-3>", Groups.menu)
+        kpGroup.pack(fill="x", expand=False, padx=5)
+             
+        Groups.tree(KP.root_group)
+
+    def add(self):
+
+        def save(self, addGroupNameString):
         
-        # Close window on save
-        addGroupNameWindow.destroy()
-
-    # Add group Window
-    addGroupNameWindow = Tk()
-    addGroupNameWindow.eval('tk::PlaceWindow . center')
-    addGroupNameWindow.title("Add " + self.name if self.name else "***EmptyGroupName***")
-
-    # Add group widget
-    addGroupNameString = StringVar(addGroupNameWindow, "")
-    addGroupNameField = Entry(addGroupNameWindow, width=50, textvariable=addGroupNameString, bd=1)
-    addGroupNameField.pack(fill='x')
-
-    # Save button
-    buttonAddGroupName = Button(addGroupNameWindow, text="Save", command=lambda:save(self, addGroupNameString))
-    buttonAddGroupName.pack()
-    
-def delGroup(self):
-
-    def delete(self):
+            # Need the fetch with find_groups where the new group will be inserted
+            gUuid = uuid.UUID(self.uuid)
+            getGroup = KP.find_groups(uuid=gUuid, first=True)
         
-        # Need the fetch with find_groups where the new group will be inserted
-        gUuid = uuid.UUID(self.uuid)
-        getGroup = KP.find_groups(uuid=gUuid, first=True)
-        
-        # Check if the group isn't the root group
-        if getGroup.is_root_group is False:		
-            # Del group, save database, refresh groups list and resetEntriesFrame
-            KP.delete_group(getGroup)      
+            # Add group, save database and refresh groups list
+            getGroup.touch(modify=True)
+            KP.add_group(getGroup, addGroupNameString.get())      
             KP.save()
-            getGroups()
-            resetEntriesFrame()
-            
+            KP.reload()
+            Groups.display()
+        
             # Close window on save
-            delGroupNameWindow.destroy()      
-        else:
-            delGroupNameLabel.config(text="You cannot delete the root group")
-            buttonDelGroupName.pack_forget()
+            addGroupNameWindow.destroy()
 
-    # Add group Window
-    delGroupNameWindow = Tk()
-    delGroupNameWindow.eval('tk::PlaceWindow . center')
-    delGroupNameWindow.title("Delete " + self.name if self.name else "***EmptyGroupName***")
+        # Add group Window
+        addGroupNameWindow = Tk()
+        addGroupNameWindow.eval('tk::PlaceWindow . center')
+        addGroupNameWindow.title("Add " + self.name if self.name else "***EmptyGroupName***")
 
-    # Confirm delete
-    delGroupNameLabel = Label(delGroupNameWindow, text="Delete " + self.name + " are you sure ?")
-    delGroupNameLabel.pack(fill='x')
+        # Add group widget
+        addGroupNameString = StringVar(addGroupNameWindow, "")
+        addGroupNameField = Entry(addGroupNameWindow, width=50, textvariable=addGroupNameString, bd=1)
+        addGroupNameField.pack(fill='x')
 
-    # Save button
-    buttonDelGroupName = Button(delGroupNameWindow, text="Delete", command=lambda:delete(self))
-    buttonDelGroupName.pack()
+        # Save button
+        buttonAddGroupName = Button(addGroupNameWindow, text="Save", command=lambda:save(self, addGroupNameString))
+        buttonAddGroupName.pack()
+    
+    def delete(self):
+
+        def save(self):
+        
+            # Need the fetch with find_groups where the new group will be inserted
+            gUuid = uuid.UUID(self.uuid)
+            getGroup = KP.find_groups(uuid=gUuid, first=True)
+        
+            # Check if the group isn't the root group
+            if getGroup.is_root_group is False:		
+                # Del group, save database, refresh groups list and reset entries 
+                KP.delete_group(getGroup)      
+                KP.save()
+                Groups.display()
+                Entries.reset()
+            
+                # Close window on save
+                delGroupNameWindow.destroy()      
+            else:
+                delGroupNameLabel.config(text="You cannot delete the root group")
+                buttonDelGroupName.pack_forget()
+
+        # Add group Window
+        delGroupNameWindow = Tk()
+        delGroupNameWindow.eval('tk::PlaceWindow . center')
+        delGroupNameWindow.title("Delete " + self.name if self.name else "***EmptyGroupName***")
+
+        # Confirm delete
+        delGroupNameLabel = Label(delGroupNameWindow, text="Delete " + self.name + " are you sure ?" if self.name else "Delete ***EmptyGroupName*** are you sure ?")
+        delGroupNameLabel.pack(fill='x')
+
+        # Save button
+        buttonDelGroupName = Button(delGroupNameWindow, text="Delete", command=lambda:save(self))
+        buttonDelGroupName.pack()
 	
-def editGroup(self):
+    def edit(self):
 
-    def save(self, editGroupNameString):
+        def save(self, editGroupNameString):
         
-        # Need the fetch with find_groups in order to update the group name
-        gUuid = uuid.UUID(self.uuid)
-        getGroup = KP.find_groups(uuid=gUuid, first=True)
+            # Need the fetch with find_groups in order to update the group name
+            gUuid = uuid.UUID(self.uuid)
+            getGroup = KP.find_groups(uuid=gUuid, first=True)
         
-        # Save group name, database and refresh groups list
-        getGroup.name = editGroupNameString.get()      
-        KP.save()
-        getGroups()
+            # Save group name, database and refresh groups list
+            getGroup.name = editGroupNameString.get()      
+            KP.save()
+            Groups.display()
         
-        # Close window on save
-        editGroupNameWindow.destroy()
+            # Close window on save
+            editGroupNameWindow.destroy()
 
-    # Edit group Window
-    editGroupNameWindow = Tk()
-    #editGroupNameWindow.geometry("400x200")
-    editGroupNameWindow.eval('tk::PlaceWindow . center')
-    editGroupNameWindow.title("Edit " + self.name if self.name else "***EmptyGroupName***")
+        # Edit group Window
+        editGroupNameWindow = Tk()
+        editGroupNameWindow.eval('tk::PlaceWindow . center')
+        editGroupNameWindow.title("Edit " + self.name if self.name else "***EmptyGroupName***")
 
-    # Edit group widget
-    editGroupNameString = StringVar(editGroupNameWindow, self.name)
-    editGroupNameField = Entry(editGroupNameWindow, width=50, textvariable=editGroupNameString, bd=1)
-    editGroupNameField.pack(fill='x')
+        # Edit group widget
+        editGroupNameString = StringVar(editGroupNameWindow, self.name)
+        editGroupNameField = Entry(editGroupNameWindow, width=50, textvariable=editGroupNameString, bd=1)
+        editGroupNameField.pack(fill='x')
 
-    # Save button
-    buttonSaveGroupName = Button(editGroupNameWindow, text="Save", command=lambda:save(self, editGroupNameString))
-    buttonSaveGroupName.pack()
+        # Save button
+        buttonSaveGroupName = Button(editGroupNameWindow, text="Save", command=lambda:save(self, editGroupNameString))
+        buttonSaveGroupName.pack()
+          	
+# Search class (search by all entries)
+class Search:
+          
+    # Cancel : If cancel button is clicked, display root entries list (default)
+    def cancel():
+        # Display default entries list (root group)
+        gUuid = str(KP.root_group.uuid)
+        Entries.display(gUuid)
     
-def resetEntriesFrame():
-    # Reset Entries Frame
-    entriesFrame.pack_forget()
-
-    # Delete all previous entries label
-    for child in entriesFrame.winfo_children():
-        child.destroy()
-  
-    rootEntriesFrame.pack(side="left", fill="both", expand=True)
-
-    # Display entries Frame/Canvas/Scrollbar
-    entriesScrollbarX.pack(side="bottom", fill="x")
-    entriesCanvas.configure(xscrollcommand=entriesScrollbarX.set)
-    entriesCanvas.pack(side="left", fill="both", expand=True)
-    entriesScrollbarY.pack(side="left", fill="y")
-    entriesCanvas.configure(yscrollcommand=entriesScrollbarY.set)
-
-    # Create the canvas window
-    entriesCanvas.create_window((4,4), window=entriesFrame, anchor="nw")
-
-    # Bind the frame to the canvas
-    entriesFrame.bind("<Configure>", lambda event, canvas=entriesCanvas: onFrameConfigure(entriesCanvas))
+    def reset():
+	    # Hide cancel icons
+        for child in utilsFrame.winfo_children():
+            child.destroy()
     
-def resetUtilsBar():
-	# Hide cancel icons
-    for child in utilsFrame.winfo_children():
-        child.destroy()
+        # Display search icons
+        searchButton = Button(utilsFrame, image=searchIcon, background="white", highlightthickness=0, border=0, command=lambda:Search.display())
+        searchButton.pack(fill='none', anchor='nw')
     
-    # Display search icons
-    searchButton = Button(utilsFrame, image=searchIcon, background="white", highlightthickness=0, border=0, command=searchEntries)
-    searchButton.pack(fill='none', anchor='nw')
-    	
-# Search entries
-def searchEntries():
-    
-    # Reset entries frame list
-    resetEntriesFrame()
-    
-    # Hide search icons
-    for child in utilsFrame.winfo_children():
-        child.destroy()
-        
-    def searchOnInput(searchStringVar): 
+    # Live search          
+    def oninput(searchStringVar): 
 	
-        resetEntriesFrame()
+        Entries.reset()
         
         # Display Label Title, Username, Url
         Label(entriesFrame, text="Title", background="#edfaca").grid(row=0, column=0, sticky='w')
@@ -418,7 +400,7 @@ def searchEntries():
                 entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
                 entriesTitleLabel.uuid = str(i.uuid)
                 entriesTitleLabel.guuid = "search"
-                entriesTitleLabel.bind("<Button-1>", getEntry)
+                entriesTitleLabel.bind("<Button-1>", Record.display)
                 entriesTitleLabel.grid(row=nr, column=0, sticky='w')
                 entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
                 entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
@@ -427,222 +409,253 @@ def searchEntries():
                 
         # Otherwise, search by title and username
         else:
-            searchTitle = KP.find_entries(title=".*" + searchStringVar.get() + ".*", regex=True, flags='i')
-            searchUsername = KP.find_entries(username=".*" + searchStringVar.get() + ".*", regex=True, flags='i')
+           searchTitle = KP.find_entries(title=".*" + searchStringVar.get() + ".*", regex=True, flags='i')
+           searchUsername = KP.find_entries(username=".*" + searchStringVar.get() + ".*", regex=True, flags='i')
            
-            # Remove double entries
-            searchJoin = list(set(searchTitle) | set(searchUsername))
+           # Remove double entries
+           searchJoin = list(set(searchTitle) | set(searchUsername))
             
-            for i in searchJoin:
+           for i in searchJoin:
                 entriesTitleLabel = Label(entriesFrame, text=(str(i.title)), width=27, anchor="w", background="white", cursor="hand2")
                 entriesUsernameLabel = Label(entriesFrame, text=(str(i.username)), width=27, anchor="w", background="white")
                 entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
                 entriesTitleLabel.uuid = str(i.uuid)
                 entriesTitleLabel.guuid = "search"
-                entriesTitleLabel.bind("<Button-1>", getEntry)
+                entriesTitleLabel.bind("<Button-1>", Record.display)
                 entriesTitleLabel.grid(row=nr, column=0, sticky='w')
                 entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
                 entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
                 # row incrementation
                 nr = nr + 1 
-       
-    # Display cancel icons and Search field
-    cancelButton = Button(utilsFrame, image=cancelIcon, background="white", highlightthickness=0, border=0, command=searchCancel)
-    cancelButton.pack(side='left')
-    searchStringVar = StringVar()
-    searchStringVar.trace("w", lambda name, index, mode, searchStringVar=searchStringVar: searchOnInput(searchStringVar))
-    searchField = Entry(utilsFrame, textvariable=searchStringVar, border=1)
-    searchField.pack(side='left', fill='x', expand=True)
+                
+    # Display entries
+    def display():
+        # Reset entries frame list
+        Entries.reset()
     
-    # Display all entries
-    try:
+        # Hide search icons
+        for child in utilsFrame.winfo_children():
+            child.destroy()
+         
+        # Display cancel icons and Search field
+        cancelButton = Button(utilsFrame, image=cancelIcon, background="white", highlightthickness=0, border=0, command=lambda:Search.cancel())
+        cancelButton.pack(side='left')
+        searchStringVar = StringVar()
+        searchStringVar.trace("w", lambda name, index, mode, searchStringVar=searchStringVar: Search.oninput(searchStringVar))
+        searchField = Entry(utilsFrame, textvariable=searchStringVar, border=1)
+        searchField.pack(side='left', fill='x', expand=True)
+    
+        # Display all entries
+        try:
 		
-        # Display Label Title, Username, Url
-        Label(entriesFrame, text="Title", background="#edfaca").grid(row=0, column=0, sticky='w')
-        Label(entriesFrame, text="Username", background="#edfaca").grid(row=0, column=1, sticky='w', padx=7)
-        Label(entriesFrame, text="URL", background="#edfaca").grid(row=0, column=2, sticky='w', padx=7)
+            # Display Label Title, Username, Url
+            Label(entriesFrame, text="Title", background="#edfaca").grid(row=0, column=0, sticky='w')
+            Label(entriesFrame, text="Username", background="#edfaca").grid(row=0, column=1, sticky='w', padx=7)
+            Label(entriesFrame, text="URL", background="#edfaca").grid(row=0, column=2, sticky='w', padx=7)
     
-		# default row incrementation
-        nr = 1
+		    # default row incrementation
+            nr = 1
         
-        for i in KP.entries:
-            entriesTitleLabel = Label(entriesFrame, text=(str(i.title)), width=27, anchor="w", background="white", cursor="hand2")
-            entriesUsernameLabel = Label(entriesFrame, text=(str(i.username)), width=27, anchor="w", background="white")
-            entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
-            entriesTitleLabel.uuid = str(i.uuid)
-            entriesTitleLabel.guuid = "search"
-            entriesTitleLabel.bind("<Button-1>", getEntry)
-            entriesTitleLabel.grid(row=nr, column=0, sticky='w')
-            entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
-            entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
-            # row incrementation
-            nr = nr + 1
+            for i in KP.entries:
+                entriesTitleLabel = Label(entriesFrame, text=(str(i.title)), width=27, anchor="w", background="white", cursor="hand2")
+                entriesUsernameLabel = Label(entriesFrame, text=(str(i.username)), width=27, anchor="w", background="white")
+                entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
+                entriesTitleLabel.uuid = str(i.uuid)
+                entriesTitleLabel.guuid = "search"
+                entriesTitleLabel.bind("<Button-1>", Record.display)
+                entriesTitleLabel.grid(row=nr, column=0, sticky='w')
+                entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
+                entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
+                # row incrementation
+                nr = nr + 1
             			
-    # Manage 'NoneType' object has no attribute 'entries' error
-    except:
-        pass  
+        # Manage 'NoneType' object has no attribute 'entries' error
+        except:
+            pass  
+
+# Entries class (listing, edit, add, delete)
+class Entries:
+
+    def reset():
+        # Reset Entries Frame
+        entriesFrame.pack_forget()
+
+        # Delete all previous entries label
+        for child in entriesFrame.winfo_children():
+            child.destroy()
+  
+        rootEntriesFrame.pack(side="left", fill="both", expand=True)
+
+        # Display entries Frame/Canvas/Scrollbar
+        entriesScrollbarX.pack(side="bottom", fill="x")
+        entriesCanvas.configure(xscrollcommand=entriesScrollbarX.set)
+        entriesCanvas.pack(side="left", fill="both", expand=True)
+        entriesScrollbarY.pack(side="left", fill="y")
+        entriesCanvas.configure(yscrollcommand=entriesScrollbarY.set)
+
+        # Create the canvas window
+        entriesCanvas.create_window((4,4), window=entriesFrame, anchor="nw")
+
+        # Bind the frame to the canvas
+        entriesFrame.bind("<Configure>", lambda event, canvas=entriesCanvas: onFrameConfigure(entriesCanvas))
     
-# Cancel Search entries
-def searchCancel():
-	
-    # Display default entries list (root group)
-    gUuid = str(KP.root_group.uuid)
-    getEntries(gUuid)
-    
-# List entries on a targeted Keepass group (label click)
-def getEntries(gUuid):
+    # List entries on a targeted Keepass group (label click)
+    def display(gUuid):
    
-    resetUtilsBar()
-    resetEntriesFrame()
+        Search.reset()
+        Entries.reset()
       
-    groupUuid = uuid.UUID(gUuid)
+        groupUuid = uuid.UUID(gUuid)
 
-    # Find all entries of the group by his uuid
-    kpEntries = KP.find_groups(uuid=groupUuid, first=True)
+        # Find all entries of the group by his uuid
+        kpEntries = KP.find_groups(uuid=groupUuid, first=True)
 
-    # Display all entries of a group  
-    try:
-		# Change window name with the current group name
-        root.title(kpEntries.name)
+        # Display all entries of a group  
+        try:
+		    # Change window name with the current group name
+            root.title(kpEntries.name)
         
-        # Display Label Title, Username, Url
-        Label(entriesFrame, text="Title", background="#edfaca").grid(row=0, column=0, sticky='w')
-        Label(entriesFrame, text="Username", background="#edfaca").grid(row=0, column=1, sticky='w', padx=7)
-        Label(entriesFrame, text="URL", background="#edfaca").grid(row=0, column=2, sticky='w', padx=7)
+            # Display Label Title, Username, Url
+            Label(entriesFrame, text="Title", background="#edfaca").grid(row=0, column=0, sticky='w')
+            Label(entriesFrame, text="Username", background="#edfaca").grid(row=0, column=1, sticky='w', padx=7)
+            Label(entriesFrame, text="URL", background="#edfaca").grid(row=0, column=2, sticky='w', padx=7)
     
-		# default row incrementation
-        nr = 1
-        for i in kpEntries.entries:
-            entriesTitleLabel = Label(entriesFrame, text=(str(i.title)), width=27, anchor="w", background="white", cursor="hand2")
-            entriesUsernameLabel = Label(entriesFrame, text=(str(i.username)), width=27, anchor="w", background="white")
-            entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
-            entriesTitleLabel.uuid = str(i.uuid)
-            entriesTitleLabel.guuid = gUuid
-            entriesTitleLabel.bind("<Button-1>", getEntry)
-            entriesTitleLabel.grid(row=nr, column=0, sticky='w')
-            entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
-            entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
-            # row incrementation
-            nr = nr + 1
+		    # default row incrementation
+            nr = 1
+            for i in kpEntries.entries:
+                entriesTitleLabel = Label(entriesFrame, text=(str(i.title)), width=27, anchor="w", background="white", cursor="hand2")
+                entriesUsernameLabel = Label(entriesFrame, text=(str(i.username)), width=27, anchor="w", background="white")
+                entriesUrlLabel = Label(entriesFrame, text=(str(i.url)), anchor="w", background="white")
+                entriesTitleLabel.uuid = str(i.uuid)
+                entriesTitleLabel.guuid = gUuid
+                entriesTitleLabel.bind("<Button-1>", Record.display)
+                entriesTitleLabel.grid(row=nr, column=0, sticky='w')
+                entriesUsernameLabel.grid(row=nr, column=1, sticky='w', padx=7)
+                entriesUrlLabel.grid(row=nr, column=2, sticky='w', padx=7)
+                # row incrementation
+                nr = nr + 1
        
         
-    # Manage 'NoneType' object has no attribute 'entries' error (if group has no entries)
-    except:
-        pass
+        # Manage 'NoneType' object has no attribute 'entries' error (if group has no entries)
+        except:
+            pass
 
-def getEntry(self):
+# Record class (View, Edit, Delete)
+# Note : AKA Entry Class, it has to be named with something different to avoid collision with TK widget Entry
+class Record:
 
-    def save(self, titleString, usernameString, passwordString, urlString, noteEntryField, gUuid):
+    def display(self): 
+		
+        def save(self, titleString, usernameString, passwordString, urlString, noteEntryField, gUuid):
 
-        # mtime update
-        self.touch(modify=True)
-        # Save in history current Entry information (before updating new Entry)
-        self.save_history()
+            # mtime update
+            self.touch(modify=True)
+            # Save in history current Entry information (before updating new Entry)
+            self.save_history()
 
-        # Update the entry with new values
-        self.title = titleString.get()
-        self.username = usernameString.get()
-        self.password = passwordString.get()
-        self.url = urlString.get()
-        self.notes = noteEntryField.get("1.0","end-1c")
+            # Update the entry with new values
+            self.title = titleString.get()
+            self.username = usernameString.get()
+            self.password = passwordString.get()
+            self.url = urlString.get()
+            self.notes = noteEntryField.get("1.0","end-1c")
 
-        # Save database
-        KP.save()
+            # Save database
+            KP.save()
         
-        #  Refresh the corresponding entries list
-        if(gUuid == "search"):
-            searchEntries()
-        else:
-            getEntries(gUuid)
+            #  Refresh the corresponding entries list
+            if(gUuid == "search"):
+                Search.display()
+            else:
+                Entries.display(gUuid)
             
-        # Close window
-        entryWindow.destroy()
+            # Close window
+            entryWindow.destroy()
         
-    def delete(self):
+        def delete(self, gUuid):
         
-        KP.delete_entry(self)
-        KP.save()
+            KP.delete_entry(self)
+            KP.save()
         
-        #  Refresh the corresponding entries list
-        if(gUuid == "search"):
-            searchEntries()
-        else:
-            getEntries(gUuid)
+            #  Refresh the corresponding entries list
+            if(gUuid == "search"):
+                Search.display()
+            else:
+                Entries.display(gUuid)
             
-        # Close window
-        entryWindow.destroy()       
-        
-    entryWindow = Tk()
-    entryWindow.geometry("400x300")
-    entryWindow.eval('tk::PlaceWindow . center')
+            # Close window
+            entryWindow.destroy()     
+          
+        entryWindow = Tk()
+        entryWindow.geometry("400x300")
+        entryWindow.eval('tk::PlaceWindow . center')
 
-    # Get Group uuid
-    gUuid = self.widget.guuid
+        # Get Group uuid
+        gUuid = self.widget.guuid
 
-    # Get the entry uuid
-    entryUuid = uuid.UUID(self.widget.uuid)
+        # Get the entry uuid
+        entryUuid = uuid.UUID(self.widget.uuid)
 
-    kpEntry = KP.find_entries(uuid=entryUuid, first=True)
+        kpEntry = KP.find_entries(uuid=entryUuid, first=True)
 
-    entryWindow.title(kpEntry.title)
-    entryWindow.config(background="white")
+        entryWindow.title(kpEntry.title)
+        entryWindow.config(background="white")
     
-    # Entry title label + field
-    titleEntryLabel = Label(entryWindow, text="Title :", anchor='w', width=10, padx=3, background="white")
-    titleEntryLabel.grid(row=0, column=0, sticky='nw')
-    titleString = StringVar(entryWindow, kpEntry.title)
-    titleEntryField = Entry(entryWindow, textvariable=titleString)
-    titleEntryField.grid(row=0, column=1, sticky='ew')
+        # Entry title label + field
+        titleEntryLabel = Label(entryWindow, text="Title :", anchor='w', width=10, padx=3, background="white")
+        titleEntryLabel.grid(row=0, column=0, sticky='nw')
+        titleString = StringVar(entryWindow, kpEntry.title)
+        titleEntryField = Entry(entryWindow, textvariable=titleString)
+        titleEntryField.grid(row=0, column=1, sticky='ew')
 
-    # Entry username label + field
-    usernameEntryLabel = Label(entryWindow, text="Username :", anchor='w', width=10, padx=3, background="white")
-    usernameEntryLabel.grid(row=1, column=0, sticky='nw')
-    usernameString = StringVar(entryWindow, kpEntry.username)
-    usernameEntryField = Entry(entryWindow, textvariable=usernameString, bd=1)
-    usernameEntryField.grid(row=1, column=1, sticky='ew')
+        # Entry username label + field
+        usernameEntryLabel = Label(entryWindow, text="Username :", anchor='w', width=10, padx=3, background="white")
+        usernameEntryLabel.grid(row=1, column=0, sticky='nw')
+        usernameString = StringVar(entryWindow, kpEntry.username)
+        usernameEntryField = Entry(entryWindow, textvariable=usernameString, bd=1)
+        usernameEntryField.grid(row=1, column=1, sticky='ew')
 
-    # Entry password label + field
-    passwordEntryLabel = Label(entryWindow, text="Password :", anchor='w', width=10, padx=3, background="white")
-    passwordEntryLabel.grid(row=2, column=0, sticky='nw')
-    passwordString = StringVar(entryWindow, kpEntry.password)
-    passwordEntryField = Entry(entryWindow, textvariable=passwordString, bd=1)
-    passwordEntryField.grid(row=2, column=1, sticky='ew')
+        # Entry password label + field
+        passwordEntryLabel = Label(entryWindow, text="Password :", anchor='w', width=10, padx=3, background="white")
+        passwordEntryLabel.grid(row=2, column=0, sticky='nw')
+        passwordString = StringVar(entryWindow, kpEntry.password)
+        passwordEntryField = Entry(entryWindow, textvariable=passwordString, bd=1)
+        passwordEntryField.grid(row=2, column=1, sticky='ew')
 
-    # Entry url label + field
-    urlEntryLabel = Label(entryWindow, text="Url :", anchor='w', width=10, padx=3, background="white")
-    urlEntryLabel.grid(row=3, column=0, sticky='nw')
-    urlString = StringVar(entryWindow, kpEntry.url)
-    urlEntryField = Entry(entryWindow, textvariable=urlString, bd=1)
-    urlEntryField.grid(row=3, column=1, sticky='ew')
+        # Entry url label + field
+        urlEntryLabel = Label(entryWindow, text="Url :", anchor='w', width=10, padx=3, background="white")
+        urlEntryLabel.grid(row=3, column=0, sticky='nw')
+        urlString = StringVar(entryWindow, kpEntry.url)
+        urlEntryField = Entry(entryWindow, textvariable=urlString, bd=1)
+        urlEntryField.grid(row=3, column=1, sticky='ew')
     
-    # Entry Note label + field
-    noteEntryLabel = Label(entryWindow, text="Note :", anchor='w', width=10, padx=3, background="white")
-    noteEntryLabel.grid(row=4, column=0, sticky='nw')
-    noteString = StringVar(entryWindow, kpEntry.notes)
-    noteEntryField = Text(entryWindow, height=14, border=1)
-    noteEntryField.insert("1.0", noteString.get())
-    noteEntryField.grid(row=4, column=1, sticky='nsew')
+        # Entry Note label + field
+        noteEntryLabel = Label(entryWindow, text="Note :", anchor='w', width=10, padx=3, background="white")
+        noteEntryLabel.grid(row=4, column=0, sticky='nw')
+        noteString = StringVar(entryWindow, kpEntry.notes)
+        noteEntryField = Text(entryWindow, height=14, border=1)
+        noteEntryField.insert("1.0", noteString.get())
+        noteEntryField.grid(row=4, column=1, sticky='nsew')
 
-    # Frame button (Needed to align Save button and Delete button side by side, on the same row/column of the grid
-    buttonFrame = Frame(entryWindow, background="white")
-    buttonFrame.grid(row=5, column=1, sticky='se')
+        # Frame button (Needed to align Save button and Delete button side by side, on the same row/column of the grid
+        buttonFrame = Frame(entryWindow, background="white")
+        buttonFrame.grid(row=5, column=1, sticky='se')
     
-    # Save button
-    buttonSaveEntry = Button(buttonFrame, text="Save", command=lambda:save(kpEntry, titleString, usernameString, passwordString, urlString, noteEntryField, gUuid))
-    buttonSaveEntry.grid(row=0, column=0)
+        # Save button
+        buttonSaveEntry = Button(buttonFrame, text="Save", command=lambda:save(kpEntry, titleString, usernameString, passwordString, urlString, noteEntryField, gUuid))
+        buttonSaveEntry.grid(row=0, column=0)
     
-    # Delete button
-    buttonDeleteEntry = Button(buttonFrame, text="Delete", command=lambda:delete(kpEntry))
-    buttonDeleteEntry.grid(row=0, column=1)
+        # Delete button
+        buttonDeleteEntry = Button(buttonFrame, text="Delete", command=lambda:delete(kpEntry, gUuid))
+        buttonDeleteEntry.grid(row=0, column=1)
 
-    # Fill field
-    entryWindow.grid_columnconfigure(1, weight=1)
-    entryWindow.grid_rowconfigure(4, weight=1)
+        # Fill field
+        entryWindow.grid_columnconfigure(1, weight=1)
+        entryWindow.grid_rowconfigure(4, weight=1)
         
 # Adjust scrollbar on frame size
 def onFrameConfigure(self):
     self.configure(scrollregion=self.bbox("all"))
-
 
 # DB Frame
 dbFrame = Frame(root)
@@ -674,7 +687,7 @@ menubar = Menu(root)
 # Menu File
 mainMenu = Menu(menubar, tearoff = 0) 
 menubar.add_cascade(label ='File', menu=mainMenu) 
-mainMenu.add_command(label ='Open database', command=openDatabase)
+mainMenu.add_command(label ='Open database', command=lambda:Database.open())
 
 # Display menubar
 root.config(menu=menubar)
