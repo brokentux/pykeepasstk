@@ -26,7 +26,7 @@ A lot more can be done !
 
 ## Requirement
 
-pykeepass must be installed in your system, see https://github.com/libkeepass/pykeepass/tree/master for the list of requierement
+pykeepass must be installed in your system, see https://github.com/libkeepass/pykeepass/tree/master
 
 ## About
 This was made as a learning project, any improvement are welcome
